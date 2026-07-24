@@ -1,3 +1,5 @@
+/* eslint-disable jsx-a11y/label-has-associated-control */
+/* eslint-disable jsx-a11y/control-has-associated-label */
 import React, { useState, useEffect, useRef } from 'react';
 import {
   getTodos,
@@ -10,13 +12,16 @@ import { Footer, TodoStatus } from './components/Footer';
 import { Header } from './components/Header';
 import { Todo } from './types/Todo';
 import { Todo as TodoItem } from './components/Todo';
+import { ErrorMessage } from './types/ErrorMessage';
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [filteringByCompleted, setFilteringByCompleted] = useState<TodoStatus>(
     TodoStatus.ALL,
   );
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<ErrorMessage>(
+    ErrorMessage.NONE,
+  );
   const [title, setTitle] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingTodoIds, setLoadingTodoIds] = useState<number[]>([]);
@@ -24,27 +29,27 @@ export const App: React.FC = () => {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Таймаут для автоматичного приховування помилки через 3 секунди
+  // Auto-hide error notification after 3 seconds
   useEffect(() => {
-    if (!errorMessage) return;
+    if (errorMessage === ErrorMessage.NONE) return;
 
     const timer = setTimeout(() => {
-      setErrorMessage(null);
+      setErrorMessage(ErrorMessage.NONE);
     }, 3000);
 
     return () => clearTimeout(timer);
   }, [errorMessage]);
 
-  // Завантаження списку при першому рендері
+  // Load todos on mount
   useEffect(() => {
     getTodos()
       .then(setTodos)
       .catch(() => {
-        setErrorMessage('Unable to load todos');
+        setErrorMessage(ErrorMessage.FAILED_LOAD);
       });
   }, []);
 
-  // Повернення фокусу в інпут
+  // Return focus to the input when submitting completes
   useEffect(() => {
     if (!isSubmitting) {
       inputRef.current?.focus();
@@ -57,7 +62,7 @@ export const App: React.FC = () => {
     const trimmedTitle = title.trim();
 
     if (!trimmedTitle) {
-      setErrorMessage('Title should not be empty');
+      setErrorMessage(ErrorMessage.EMPTY_TITLE);
       return;
     }
 
@@ -80,7 +85,7 @@ export const App: React.FC = () => {
         setTitle('');
       })
       .catch(() => {
-        setErrorMessage('Unable to add a todo');
+        setErrorMessage(ErrorMessage.FAILED_ADD);
       })
       .finally(() => {
         setTempTodo(null);
@@ -96,11 +101,11 @@ export const App: React.FC = () => {
         setTodos(prev => prev.filter(todo => todo.id !== todoId));
       })
       .catch(() => {
-        setErrorMessage('Unable to delete a todo');
+        setErrorMessage(ErrorMessage.FAILED_DELETE);
       })
       .finally(() => {
         setLoadingTodoIds(prev => prev.filter(id => id !== todoId));
-        inputRef.current?.focus(); // Переконуємось, що фокус повертається в інпут
+        inputRef.current?.focus();
       });
   };
 
@@ -172,10 +177,10 @@ export const App: React.FC = () => {
         )}
       </div>
 
-      {/* Блок відображення помилки */}
+      {/* Notification Toast */}
       <div
         className={`notification is-danger is-light has-text-weight-normal ${
-          !errorMessage ? 'hidden' : ''
+          errorMessage === ErrorMessage.NONE ? 'hidden' : ''
         }`}
         data-cy="ErrorNotification"
       >
@@ -183,7 +188,7 @@ export const App: React.FC = () => {
           type="button"
           className="delete"
           data-cy="HideErrorButton"
-          onClick={() => setErrorMessage(null)}
+          onClick={() => setErrorMessage(ErrorMessage.NONE)}
         />
         {errorMessage}
       </div>
